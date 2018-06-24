@@ -1,0 +1,170 @@
+#include <err.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <libvirt/libvirt.h>
+#include <libvirt/virterror.h>
+
+static int creds[] = {
+	VIR_CRED_USERNAME,
+	VIR_CRED_PASSPHRASE,
+};
+
+static struct cred {
+	char *username;
+	char *passwd;
+} virt_cred;
+
+static int authCb(virConnectCredentialPtr cred, unsigned int ncred,
+			void *cbdata)
+{
+	struct cred *vcred = (struct cred *)cbdata;
+	size_t i;
+
+	for (i = 0; i < ncred; i++) {
+		if (cred[i].type == VIR_CRED_USERNAME) {
+			size_t len = strlen(vcred->username);
+			if (len == 0) {
+				printf("invalid user\n");
+				return -1;
+			}
+
+			cred[i].result = strdup(vcred->username);
+			cred[i].resultlen = len;
+		}
+		else if (cred[i].type == VIR_CRED_PASSPHRASE) {
+			size_t len = strlen(vcred->passwd);
+			if (len == 0) {
+				printf("invalid pass\n");
+				return -1;
+			}
+
+			cred[i].result = strdup(vcred->passwd);
+			cred[i].resultlen = len;
+		}
+	}
+
+	return 0;
+}
+
+int main(int argc, char **argv)
+{
+	virConnectAuth cauth;
+	virConnectPtr conn;
+	virNodeInfo ninfo;
+	virSecurityModel secmod;
+	virDomainPtr *domList;
+	char *caps, *uri, *hostname;
+	unsigned long ver, libver;
+	ssize_t i;
+	int numNames;
+
+	if (argc < 3)
+		errx(EXIT_FAILURE, "Usage: libvirt <user> <passwd> <uri>");
+
+	virt_cred.username = argv[1];
+	virt_cred.passwd = argv[2];
+
+	cauth.credtype = creds;
+	cauth.ncredtype = sizeof(creds)/sizeof(int);
+	cauth.cb = authCb;
+	cauth.cbdata = &virt_cred;
+
+	conn = virConnectOpenAuth(argv[3], &cauth, 0);
+	if (conn == NULL)
+		errx(EXIT_FAILURE, "Failed to connect to qemu");
+
+	caps = virConnectGetCapabilities(conn);
+	printf("Capabilities: %s\n", caps);
+	free(caps);
+
+	uri = virConnectGetURI(conn);
+	printf("Connected at %s\n", uri);
+	free(uri);
+
+	hostname = virConnectGetHostname(conn);
+	printf("Hostname: %s\n", hostname);
+	free(hostname);
+
+	virConnectGetVersion(conn, &ver);
+	virConnectGetLibVersion(conn, &libver);
+
+	printf("Virtualizaton Type: %s\n", virConnectGetType(conn));
+	printf("Driver Version: %lu\n", ver);
+	printf("LibVirt Version: %lu\n", libver);
+	printf("Max vCPUS: %d\n", virConnectGetMaxVcpus(conn, NULL));
+	printf("Node Free Memory: %llu\n", virNodeGetFreeMemory(conn));
+
+	printf("Connention is encrypted: %d\n", virConnectIsEncrypted(conn));
+	printf("Connention is secure: %d\n", virConnectIsSecure(conn));
+
+	virNodeGetInfo(conn, &ninfo);
+
+	printf("Node Info:\n");
+	printf("\tModel: %s\n", ninfo.model);
+	printf("\tMemory: %lukb\n", ninfo.memory);
+	printf("\tCPUs: %d\n", ninfo.cpus);
+
+	virNodeGetSecurityModel(conn, &secmod);
+	printf("\tSecurity Model: %s\n", secmod.model);
+	printf("\tSecurity DOI: %s\n", secmod.doi);
+
+	printf("\tActive Domains: %d\n",
+			virConnectNumOfDomains(conn));
+	printf("\tInactive Domains: %d\n",
+			virConnectNumOfDefinedDomains(conn));
+
+	numNames = virConnectListAllDomains(conn, &domList,
+			VIR_CONNECT_LIST_DOMAINS_ACTIVE |
+			VIR_CONNECT_LIST_DOMAINS_INACTIVE);
+	if (numNames == -1) {
+		printf("Failed to get All domains: %s\n",
+				virGetLastErrorMessage());
+		return 1;
+	}
+
+	if (numNames > 0) {
+		printf("Domains:\n");
+		for (i = 0; i < numNames; i++) {
+			printf("\t%8s: %s\n", virDomainGetName(domList[i])
+				, (virDomainIsActive(domList[i]) == 1)
+					? "Active" : "Non-active");
+			virDomainFree(domList[i]);
+		}
+	}
+
+	free(domList);
+
+	if (argc == 5) {
+		char *dname = argv[4];
+		virDomainPtr dom;
+		virDomainInfo dinfo;
+
+		dom = virDomainLookupByName(conn, dname);
+		if (!dom) {
+			fprintf(stderr, "Domain %s not found\n", dname);
+			goto out;
+		}
+
+		if (virDomainGetInfo(dom, &dinfo) < 0) {
+			fprintf(stderr, "Could not get info: %s\n",
+				virGetLastErrorMessage());
+			goto out;
+		}
+
+		printf("Domain %s Info:\n", dname);
+		printf("\tIs running: %s\n", dinfo.state == VIR_DOMAIN_RUNNING
+				? "yes" : "no");
+		printf("\tMax Memory Allowed: %ldkb\n", dinfo.maxMem);
+		printf("\tUsed memory: %ldkb\n", dinfo.memory);
+		printf("\tNumber of virtual CPUs: %d\n", dinfo.nrVirtCpu);
+		printf("\tCPU time (nanoseconds): %lld\n", dinfo.cpuTime);
+	}
+
+out:
+	virConnectClose(conn);
+
+	return 0;
+}
