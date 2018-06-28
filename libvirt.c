@@ -1,4 +1,5 @@
 #include <err.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,6 +7,11 @@
 
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
+
+static float ktog(int kb)
+{
+	return (float)(kb) / 1024.0 / 1024.0;
+}
 
 static int creds[] = {
 	VIR_CRED_AUTHNAME, // esx expects AUTHNAME
@@ -112,7 +118,7 @@ int main(int argc, char **argv)
 
 	printf("Node Info:\n");
 	printf("\tModel: %s\n", ninfo.model);
-	printf("\tMemory: %lukb\n", ninfo.memory);
+	printf("\tMemory: %.2fG\n", ktog(ninfo.memory));
 	printf("\tCPUs: %d\n", ninfo.cpus);
 
 	virNodeGetSecurityModel(conn, &secmod);
@@ -165,8 +171,8 @@ int main(int argc, char **argv)
 		printf("Domain %s Info:\n", dname);
 		printf("\tIs running: %s\n", dinfo.state == VIR_DOMAIN_RUNNING
 				? "yes" : "no");
-		printf("\tMax Memory Allowed: %ldkb\n", dinfo.maxMem);
-		printf("\tUsed memory: %ldkb\n", dinfo.memory);
+		printf("\tMax Memory Allowed: %.2fG\n", ktog(dinfo.maxMem));
+		printf("\tUsed memory: %.2fG\n", ktog(dinfo.memory));
 		printf("\tNumber of virtual CPUs: %d\n", dinfo.nrVirtCpu);
 		printf("\tCPU time (nanoseconds): %lld\n", dinfo.cpuTime);
 	}
