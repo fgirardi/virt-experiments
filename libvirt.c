@@ -8,8 +8,9 @@
 #include <libvirt/virterror.h>
 
 static int creds[] = {
-	VIR_CRED_USERNAME,
+	VIR_CRED_AUTHNAME, // esx expects AUTHNAME
 	VIR_CRED_PASSPHRASE,
+	VIR_CRED_USERNAME,
 };
 
 static struct cred {
@@ -24,7 +25,9 @@ static int authCb(virConnectCredentialPtr cred, unsigned int ncred,
 	size_t i;
 
 	for (i = 0; i < ncred; i++) {
-		if (cred[i].type == VIR_CRED_USERNAME) {
+		switch (cred[i].type) {
+		case VIR_CRED_USERNAME:
+		case VIR_CRED_AUTHNAME: {
 			size_t len = strlen(vcred->username);
 			if (len == 0) {
 				printf("invalid user\n");
@@ -33,8 +36,9 @@ static int authCb(virConnectCredentialPtr cred, unsigned int ncred,
 
 			cred[i].result = strdup(vcred->username);
 			cred[i].resultlen = len;
+			break;
 		}
-		else if (cred[i].type == VIR_CRED_PASSPHRASE) {
+		case VIR_CRED_PASSPHRASE: {
 			size_t len = strlen(vcred->passwd);
 			if (len == 0) {
 				printf("invalid pass\n");
@@ -43,6 +47,10 @@ static int authCb(virConnectCredentialPtr cred, unsigned int ncred,
 
 			cred[i].result = strdup(vcred->passwd);
 			cred[i].resultlen = len;
+			break;
+		}
+		default:
+			printf("Cred type not found: %d\n", cred[i].type);
 		}
 	}
 
