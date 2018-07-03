@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 	virNodeInfo ninfo;
 	virSecurityModel secmod;
 	virDomainPtr *domList;
-	char *caps, *uri, *hostname;
+	char *caps, *uri, *hostname, *os_dom;
 	unsigned long ver, libver;
 	ssize_t i;
 	int numNames;
@@ -175,6 +175,12 @@ int main(int argc, char **argv)
 		printf("\tUsed memory: %.2fG\n", ktog(dinfo.memory));
 		printf("\tNumber of virtual CPUs: %d\n", dinfo.nrVirtCpu);
 		printf("\tCPU time (nanoseconds): %lld\n", dinfo.cpuTime);
+
+		os_dom = virDomainGetOSType(dom);
+		if (os_dom) {
+			printf("\tOS type: %s\n", os_dom);
+			free(os_dom);
+		}
 	}
 
 out:
