@@ -63,6 +63,41 @@ static int authCb(virConnectCredentialPtr cred, unsigned int ncred,
 	return 0;
 }
 
+static int node_info(virConnectPtr conn, char *node_name)
+{
+	virDomainPtr dom;
+	virDomainInfo dinfo;
+	char *os_dom;
+
+	dom = virDomainLookupByName(conn, node_name);
+	if (!dom) {
+		fprintf(stderr, "Domain %s not found\n", node_name);
+		return -1;
+	}
+
+	if (virDomainGetInfo(dom, &dinfo) < 0) {
+		fprintf(stderr, "Could not get info: %s\n",
+				virGetLastErrorMessage());
+		return -1;
+	}
+
+	printf("Domain %s Info:\n", node_name);
+	printf("\tIs running: %s\n", dinfo.state == VIR_DOMAIN_RUNNING
+			? "yes" : "no");
+	printf("\tMax Memory Allowed: %.2fG\n", ktog(dinfo.maxMem));
+	printf("\tUsed memory: %.2fG\n", ktog(dinfo.memory));
+	printf("\tNumber of virtual CPUs: %d\n", dinfo.nrVirtCpu);
+	printf("\tCPU time (nanoseconds): %lld\n", dinfo.cpuTime);
+
+	os_dom = virDomainGetOSType(dom);
+	if (os_dom) {
+		printf("\tOS type: %s\n", os_dom);
+		free(os_dom);
+	}
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	virConnectAuth cauth;
@@ -70,10 +105,11 @@ int main(int argc, char **argv)
 	virNodeInfo ninfo;
 	virSecurityModel secmod;
 	virDomainPtr *domList;
-	char *caps, *uri, *hostname, *os_dom;
+	char *caps, *uri, *hostname;
 	unsigned long ver, libver;
 	ssize_t i;
 	int numNames;
+	int ret = 0;
 
 	if (argc < 3)
 		errx(EXIT_FAILURE, "Usage: libvirt <user> <passwd> <uri>");
@@ -151,40 +187,10 @@ int main(int argc, char **argv)
 
 	free(domList);
 
-	if (argc == 5) {
-		char *dname = argv[4];
-		virDomainPtr dom;
-		virDomainInfo dinfo;
+	if (argc == 5)
+		ret = node_info(conn, argv[4]);
 
-		dom = virDomainLookupByName(conn, dname);
-		if (!dom) {
-			fprintf(stderr, "Domain %s not found\n", dname);
-			goto out;
-		}
-
-		if (virDomainGetInfo(dom, &dinfo) < 0) {
-			fprintf(stderr, "Could not get info: %s\n",
-				virGetLastErrorMessage());
-			goto out;
-		}
-
-		printf("Domain %s Info:\n", dname);
-		printf("\tIs running: %s\n", dinfo.state == VIR_DOMAIN_RUNNING
-				? "yes" : "no");
-		printf("\tMax Memory Allowed: %.2fG\n", ktog(dinfo.maxMem));
-		printf("\tUsed memory: %.2fG\n", ktog(dinfo.memory));
-		printf("\tNumber of virtual CPUs: %d\n", dinfo.nrVirtCpu);
-		printf("\tCPU time (nanoseconds): %lld\n", dinfo.cpuTime);
-
-		os_dom = virDomainGetOSType(dom);
-		if (os_dom) {
-			printf("\tOS type: %s\n", os_dom);
-			free(os_dom);
-		}
-	}
-
-out:
 	virConnectClose(conn);
 
-	return 0;
+	return ret;
 }
