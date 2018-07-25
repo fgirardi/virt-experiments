@@ -69,6 +69,7 @@ static int node_info(virConnectPtr conn, char *node_name)
 	virDomainPtr dom;
 	virDomainInfo dinfo;
 	char *os_dom;
+	int autostart;
 
 	dom = virDomainLookupByName(conn, node_name);
 	if (!dom) {
@@ -89,6 +90,9 @@ static int node_info(virConnectPtr conn, char *node_name)
 	printf("\tUsed memory: %.2fG\n", ktog(dinfo.memory));
 	printf("\tNumber of virtual CPUs: %d\n", dinfo.nrVirtCpu);
 	printf("\tCPU time (nanoseconds): %lld\n", dinfo.cpuTime);
+
+	if (virDomainGetAutostart(dom, &autostart) != -1)
+		printf("\tAutostart: %s\n", autostart ? "yes" : "no");
 
 	os_dom = virDomainGetOSType(dom);
 	if (os_dom) {
