@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <libvirt/libvirt.h>
+#include <libvirt/libvirt-storage.h>
 #include <libvirt/virterror.h>
 
 static float ktog(int kb)
@@ -108,8 +109,7 @@ int main(int argc, char **argv)
 	char *caps, *uri, *hostname;
 	unsigned long ver, libver;
 	ssize_t i;
-	int numNames;
-	int ret = 0;
+	int numNames, nstorage, ret = 0;
 
 	if (argc < 3)
 		errx(EXIT_FAILURE, "Usage: libvirt <user> <passwd> <uri>");
@@ -149,7 +149,22 @@ int main(int argc, char **argv)
 
 	printf("Connention is encrypted: %d\n", virConnectIsEncrypted(conn));
 	printf("Connention is secure: %d\n", virConnectIsSecure(conn));
+	nstorage = virConnectNumOfStoragePools(conn);
+	printf("Number of Storage Pools: %d\n", nstorage);
+	if (nstorage > 0) {
+		virStoragePoolPtr *pools;
+		ret = virConnectListAllStoragePools(conn, &pools, nstorage);
+		if (ret < 1)
+			goto out;
 
+		printf("Storage names:\n");
+		for (i = 0; i < ret; i++) {
+			printf("\t%s\n", virStoragePoolGetName(pools[i]));
+			virStoragePoolFree(pools[i]);
+		}
+	}
+
+out:
 	virNodeGetInfo(conn, &ninfo);
 
 	printf("Node Info:\n");
