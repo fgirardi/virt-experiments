@@ -68,7 +68,7 @@ static int dom_info(virConnectPtr conn, char *dom_name)
 {
 	virDomainPtr dom;
 	virDomainInfo dinfo;
-	char *os_dom;
+	char *os_dom, *xmldesc;
 	int autostart;
 
 	dom = virDomainLookupByName(conn, dom_name);
@@ -84,6 +84,7 @@ static int dom_info(virConnectPtr conn, char *dom_name)
 	}
 
 	printf("Domain %s Info:\n", dom_name);
+	printf("\tMax vCPUs: %d\n", virDomainGetMaxVcpus(dom));
 	printf("\tIs running: %s\n", dinfo.state == VIR_DOMAIN_RUNNING
 			? "yes" : "no");
 	printf("\tMax Memory Allowed: %.2fG\n", ktog(dinfo.maxMem));
@@ -98,6 +99,12 @@ static int dom_info(virConnectPtr conn, char *dom_name)
 	if (os_dom) {
 		printf("\tOS type: %s\n", os_dom);
 		free(os_dom);
+	}
+
+	xmldesc = virDomainGetXMLDesc(dom, 0);
+	if (xmldesc) {
+		printf("Domain XML Description:\n%s\n", xmldesc);
+		free(xmldesc);
 	}
 
 	return 0;
@@ -148,7 +155,9 @@ int main(int argc, char **argv)
 	printf("Virtualizaton Type: %s\n", virConnectGetType(conn));
 	printf("Driver Version: %lu\n", ver);
 	printf("LibVirt Version: %lu\n", libver);
-	printf("Max vCPUS: %d\n", virConnectGetMaxVcpus(conn, NULL));
+	ret = virConnectGetMaxVcpus(conn, NULL);
+	if (ret != -1)
+		printf("Max vCPUS: %d\n", ret);
 	printf("Node Free Memory: %llu\n", virNodeGetFreeMemory(conn));
 
 	printf("Connention is encrypted: %d\n", virConnectIsEncrypted(conn));
@@ -158,17 +167,15 @@ int main(int argc, char **argv)
 	if (nstorage > 0) {
 		virStoragePoolPtr *pools;
 		ret = virConnectListAllStoragePools(conn, &pools, nstorage);
-		if (ret < 1)
-			goto out;
-
-		printf("Storage names:\n");
-		for (i = 0; i < ret; i++) {
-			printf("\t%s\n", virStoragePoolGetName(pools[i]));
-			virStoragePoolFree(pools[i]);
+		if (ret > 1) {
+			printf("Storage names:\n");
+			for (i = 0; i < ret; i++) {
+				printf("\t%s\n", virStoragePoolGetName(pools[i]));
+				virStoragePoolFree(pools[i]);
+			}
 		}
 	}
 
-out:
 	virNodeGetInfo(conn, &ninfo);
 
 	printf("Node Info:\n");
