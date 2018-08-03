@@ -64,16 +64,16 @@ static int authCb(virConnectCredentialPtr cred, unsigned int ncred,
 	return 0;
 }
 
-static int node_info(virConnectPtr conn, char *node_name)
+static int dom_info(virConnectPtr conn, char *dom_name)
 {
 	virDomainPtr dom;
 	virDomainInfo dinfo;
 	char *os_dom;
 	int autostart;
 
-	dom = virDomainLookupByName(conn, node_name);
+	dom = virDomainLookupByName(conn, dom_name);
 	if (!dom) {
-		fprintf(stderr, "Domain %s not found\n", node_name);
+		fprintf(stderr, "Domain %s not found\n", dom_name);
 		return -1;
 	}
 
@@ -83,7 +83,7 @@ static int node_info(virConnectPtr conn, char *node_name)
 		return -1;
 	}
 
-	printf("Domain %s Info:\n", node_name);
+	printf("Domain %s Info:\n", dom_name);
 	printf("\tIs running: %s\n", dinfo.state == VIR_DOMAIN_RUNNING
 			? "yes" : "no");
 	printf("\tMax Memory Allowed: %.2fG\n", ktog(dinfo.maxMem));
@@ -105,7 +105,7 @@ static int node_info(virConnectPtr conn, char *node_name)
 
 int main(int argc, char **argv)
 {
-	virConnectAuth cauth;
+	virConnectAuth cauth = {0};
 	virConnectPtr conn;
 	virNodeInfo ninfo;
 	virSecurityModel secmod;
@@ -128,7 +128,7 @@ int main(int argc, char **argv)
 
 	conn = virConnectOpenAuth(argv[3], &cauth, 0);
 	if (conn == NULL)
-		errx(EXIT_FAILURE, "Failed to connect to qemu");
+		errx(EXIT_FAILURE, "Failed to connect to hypervisor");
 
 	caps = virConnectGetCapabilities(conn);
 	printf("Capabilities: %s\n", caps);
@@ -207,7 +207,7 @@ out:
 	free(domList);
 
 	if (argc == 5)
-		ret = node_info(conn, argv[4]);
+		ret = dom_info(conn, argv[4]);
 
 	virConnectClose(conn);
 
