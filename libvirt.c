@@ -9,9 +9,9 @@
 #include <libvirt/libvirt-storage.h>
 #include <libvirt/virterror.h>
 
-static float ktog(int kb)
+static float ktog(float kb)
 {
-	return (float)(kb) / 1024.0 / 1024.0;
+	return kb / 1024.0 / 1024.0;
 }
 
 static int creds[] = {
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 	ret = virConnectGetMaxVcpus(conn, NULL);
 	if (ret != -1)
 		printf("Max vCPUS: %d\n", ret);
-	printf("Node Free Memory: %llu\n", virNodeGetFreeMemory(conn));
+	printf("Node Free Memory: %.2fG\n", ktog(virNodeGetFreeMemory(conn)) / 1024.0);
 
 	printf("Connention is encrypted: %d\n", virConnectIsEncrypted(conn));
 	printf("Connention is secure: %d\n", virConnectIsSecure(conn));
