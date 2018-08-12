@@ -183,9 +183,10 @@ int main(int argc, char **argv)
 	printf("\tMemory: %.2fG\n", ktog(ninfo.memory));
 	printf("\tCPUs: %d\n", ninfo.cpus);
 
-	virNodeGetSecurityModel(conn, &secmod);
-	printf("\tSecurity Model: %s\n", secmod.model);
-	printf("\tSecurity DOI: %s\n", secmod.doi);
+	if (virNodeGetSecurityModel(conn, &secmod) != -1) {
+		printf("\tSecurity Model: %s\n", secmod.model);
+		printf("\tSecurity DOI: %s\n", secmod.doi);
+	}
 
 	printf("\tActive Domains: %d\n",
 			virConnectNumOfDomains(conn));
@@ -198,7 +199,7 @@ int main(int argc, char **argv)
 	if (numNames == -1) {
 		printf("Failed to get All domains: %s\n",
 				virGetLastErrorMessage());
-		return 1;
+		goto out;
 	}
 
 	if (numNames > 0) {
@@ -216,6 +217,7 @@ int main(int argc, char **argv)
 	if (argc == 5)
 		ret = dom_info(conn, argv[4]);
 
+out:
 	virConnectClose(conn);
 
 	return ret;
