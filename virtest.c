@@ -110,6 +110,37 @@ static int dom_info(virConnectPtr conn, char *dom_name)
 	return 0;
 }
 
+static void storage(virConnectPtr conn)
+{
+	int i, ret, nstorage;
+
+	nstorage = virConnectNumOfStoragePools(conn);
+	printf("Number of Storage Pools: %d\n", nstorage);
+	if (nstorage > 0) {
+		char **npools = (char **)malloc(sizeof(char **) * nstorage);
+
+		if (virConnectListStoragePools(conn, npools, nstorage) == nstorage) {
+			printf("Storage pools by name:\n");
+			for (i = 0; i < nstorage; i++) {
+				printf("\t%s\n", npools[i]);
+				free(npools[i]);
+			}
+		}
+
+		free(npools);
+
+		virStoragePoolPtr *pools;
+		ret = virConnectListAllStoragePools(conn, &pools, nstorage);
+		if (ret > 1) {
+			printf("Storage names:\n");
+			for (i = 0; i < ret; i++) {
+				printf("\t%s\n", virStoragePoolGetName(pools[i]));
+				virStoragePoolFree(pools[i]);
+			}
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 	virConnectAuth cauth = {0};
@@ -120,7 +151,7 @@ int main(int argc, char **argv)
 	char *caps, *uri, *hostname;
 	unsigned long ver, libver;
 	ssize_t i;
-	int numNames, nstorage, ret = 0;
+	int numNames, ret = 0;
 
 	if (argc < 3)
 		errx(EXIT_FAILURE, "Usage: libvirt <user> <passwd> <uri>");
@@ -162,19 +193,8 @@ int main(int argc, char **argv)
 
 	printf("Connention is encrypted: %d\n", virConnectIsEncrypted(conn));
 	printf("Connention is secure: %d\n", virConnectIsSecure(conn));
-	nstorage = virConnectNumOfStoragePools(conn);
-	printf("Number of Storage Pools: %d\n", nstorage);
-	if (nstorage > 0) {
-		virStoragePoolPtr *pools;
-		ret = virConnectListAllStoragePools(conn, &pools, nstorage);
-		if (ret > 1) {
-			printf("Storage names:\n");
-			for (i = 0; i < ret; i++) {
-				printf("\t%s\n", virStoragePoolGetName(pools[i]));
-				virStoragePoolFree(pools[i]);
-			}
-		}
-	}
+
+	storage(conn);
 
 	virNodeGetInfo(conn, &ninfo);
 
