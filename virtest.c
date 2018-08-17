@@ -141,6 +141,28 @@ static void storage(virConnectPtr conn)
 	}
 }
 
+static void networks(virConnectPtr conn)
+{
+	int i, nets;
+
+	nets = virConnectNumOfNetworks(conn);
+	printf("Networks: %d\n", nets);
+
+	if (nets > 0) {
+		char **net_list = (char **)malloc(sizeof(char **) * nets);
+
+		if (virConnectListNetworks(conn, net_list, nets) == nets) {
+			printf("Networks by name:\n");
+			for (i = 0; i < nets; i++) {
+				printf("\t%s\n", net_list[i]);
+				free(net_list[i]);
+			}
+		}
+
+		free(net_list);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	virConnectAuth cauth = {0};
@@ -195,6 +217,7 @@ int main(int argc, char **argv)
 	printf("Connention is secure: %d\n", virConnectIsSecure(conn));
 
 	storage(conn);
+	networks(conn);
 
 	virNodeGetInfo(conn, &ninfo);
 
