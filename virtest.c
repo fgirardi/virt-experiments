@@ -4,10 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include <libvirt/libvirt.h>
 #include <libvirt/libvirt-storage.h>
 #include <libvirt/virterror.h>
+
+char *urlParam;
+char *domainParam;
 
 static float ktog(float kb)
 {
@@ -163,8 +167,34 @@ static void networks(virConnectPtr conn)
 	}
 }
 
+
 int main(int argc, char **argv)
 {
+	int opt= 0;
+	static struct option long_options[] = {
+		{"username", required_argument,0,  'u' },
+		{"password", required_argument,0,  'p' },
+		{"url"     , required_argument,0,  'r' },
+		{"domain"  , required_argument,0,  'd' },
+		{0,       0                   ,0,   0  }
+	    };
+
+	int long_index = 0;
+
+	while ((opt = getopt_long(argc, argv,"u:p:r:d:", long_options, &long_index )) != -1) {
+        	switch (opt) {
+	             case 'u' : virt_cred.username = optarg;
+        	         break;
+		     case 'p' : virt_cred.passwd = optarg;
+			 break;
+		     case 'r' : urlParam = optarg;
+			 break;
+		     case 'd' : domainParam = optarg;
+			 break;
+		     default: errx(EXIT_FAILURE, "Usage: ./virtest -u <user> -p <passwd> -r <uri> -d <domain> (Optional)");
+		}
+	}
+
 	virConnectAuth cauth = {0};
 	virConnectPtr conn;
 	virNodeInfo ninfo;
@@ -175,18 +205,13 @@ int main(int argc, char **argv)
 	ssize_t i;
 	int numNames, ret = 0;
 
-	if (argc < 3)
-		errx(EXIT_FAILURE, "Usage: libvirt <user> <passwd> <uri>");
-
-	virt_cred.username = argv[1];
-	virt_cred.passwd = argv[2];
 
 	cauth.credtype = creds;
 	cauth.ncredtype = sizeof(creds)/sizeof(int);
 	cauth.cb = authCb;
 	cauth.cbdata = &virt_cred;
 
-	conn = virConnectOpenAuth(argv[3], &cauth, 0);
+	conn = virConnectOpenAuth(urlParam, &cauth, 0);
 	if (conn == NULL)
 		errx(EXIT_FAILURE, "Failed to connect to hypervisor");
 
@@ -257,8 +282,8 @@ int main(int argc, char **argv)
 
 	free(domList);
 
-	if (argc == 5)
-		ret = dom_info(conn, argv[4]);
+	if (domainParam)
+		ret = dom_info(conn, domainParam);
 
 out:
 	virConnectClose(conn);
