@@ -167,6 +167,11 @@ static void networks(virConnectPtr conn)
 	}
 }
 
+void usage() {
+
+	errx(EXIT_FAILURE, "Usage: ./virtest -u <user> -p <passwd> -r <uri> -d <domain> (Optional)");
+	
+}
 
 int main(int argc, char **argv)
 {
@@ -191,9 +196,14 @@ int main(int argc, char **argv)
 			 break;
 		     case 'd' : domainParam = optarg;
 			 break;
-		     default: errx(EXIT_FAILURE, "Usage: ./virtest -u <user> -p <passwd> -r <uri> -d <domain> (Optional)");
+		     default  : usage();
 		}
 	}
+
+	if ((virt_cred.username == NULL )||
+	    (virt_cred.passwd   == NULL) ||
+	    (urlParam           == NULL))
+		usage();
 
 	virConnectAuth cauth = {0};
 	virConnectPtr conn;
